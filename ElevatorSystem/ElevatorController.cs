@@ -93,6 +93,10 @@
             for(int i=0;i<ElevatorsCount;i++)
             {
                 int currentFloor = elevators[i].getCurrentFloor();
+                if (elevators[i].getStatus()==status.alarm)
+                {
+                    continue;
+                }
                 if (elevators[i].getStatus()==status.wait)
                 {
                     if(Math.Abs(currentFloor-floor) < minDist)
@@ -187,6 +191,10 @@
             for (int i = 0; i < ElevatorsCount; i++)
             {
                 int currentFloor = elevators[i].getCurrentFloor();
+                if (elevators[i].getStatus() == status.alarm)
+                {
+                    continue;
+                }
                 if (elevators[i].getStatus() == status.wait)
                 {
                     if (Math.Abs(currentFloor - floor) < minDist)
@@ -284,7 +292,8 @@
 
         void pullUpward(int elevatorIndex)
         {
-            if (elevators[elevatorIndex].getStatus()==status.down)
+            status currentStatus = elevators[elevatorIndex].getStatus();
+            if (currentStatus == status.down || currentStatus == status.alarm)
             {
                 return;
             }
@@ -300,6 +309,7 @@
                         elevators[elevatorIndex].setTargetFloor(i);
                         while (elevators[elevatorIndex].getCurrentFloor() != elevators[elevatorIndex].getTargetFloor())
                         {
+                            while (elevators[elevatorIndex].getStatus() == status.alarm) ;
                             elevators[elevatorIndex].move();
                             if (upRequest[elevatorIndex, elevators[elevatorIndex].getCurrentFloor()] == 1)
                             {
@@ -323,7 +333,8 @@
        
         void pushDownward(int elevatorIndex)
         {
-            if (elevators[elevatorIndex].getStatus()==status.up)
+            status currentStatus = elevators[elevatorIndex].getStatus();
+            if (currentStatus == status.up||currentStatus==status.alarm)
             {
                 return;
             }
@@ -338,6 +349,7 @@
                         elevators[elevatorIndex].setTargetFloor(i);
                         while (elevators[elevatorIndex].getCurrentFloor() != elevators[elevatorIndex].getTargetFloor())
                         {
+                            while (elevators[elevatorIndex].getStatus() == status.alarm) ;
                             elevators[elevatorIndex].move();
                             if (downRequest[elevatorIndex, elevators[elevatorIndex].getCurrentFloor()] == 1)
                             {

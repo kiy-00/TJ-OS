@@ -1,3 +1,4 @@
+using System.Buffers.Text;
 using System.Timers;
 
 namespace ElevatorSystem
@@ -135,7 +136,7 @@ namespace ElevatorSystem
                 PictureBox elevatorPictureBox = new PictureBox
                 {
                     Size = new System.Drawing.Size(45, 45),
-                    Location = new System.Drawing.Point(50, (FloorsCount-1)*40),
+                    Location = new System.Drawing.Point(50, 20 + (FloorsCount - 1) * 40),
                     Image=Image.FromFile(imagePath),
                     SizeMode = PictureBoxSizeMode.StretchImage,
                 };
@@ -397,32 +398,26 @@ namespace ElevatorSystem
 
             var newPassenger = new Passenger(nextPassengerId++, currentFloor, targetFloor, assignedElevator);
 
-            status temp = manage.elevators[assignedElevator].getStatus();
             manage.elevators[assignedElevator].takePassenger();
             if (manage.elevators[assignedElevator].check() == false)
             {
                 this.Invoke((MethodInvoker)delegate // 确保在UI线程上执行
                 {
                     MessageBox.Show($"电梯 {assignedElevator + 1} 内的警报触发,电梯超载！");
-                    Button alarmButton = FindAlarmButton(assignedElevator);
-                    if (alarmButton != null)
+                    TriggerAlarmState(assignedElevator, true);
+                    var timer = new System.Windows.Forms.Timer { Interval = 5000 }; // 5秒后解除报警
+                    timer.Tick += (sender, args) =>
                     {
-                        alarmButton.BackColor = Color.Red;
-                        var timer = new System.Windows.Forms.Timer { Interval = 5000 }; // 5秒后执行
-                        timer.Tick += (sender, args) =>
+                        this.Invoke((MethodInvoker)delegate // 再次确保在UI线程上执行
                         {
-                            this.Invoke((MethodInvoker)delegate // 再次确保在UI线程上执行
-                            {
-                                alarmButton.BackColor = Color.White;
-                            });
-                            timer.Stop();
-                            timer.Dispose(); // 停止计时器并释放资源
-                        };
-                        timer.Start();
-                    }
+                            TriggerAlarmState(assignedElevator, false);
+                        });
+                        timer.Stop();
+                        timer.Dispose(); // 停止计时器并释放资源
+                    };
+                    timer.Start();
                 });
-                manage.elevators[assignedElevator].ariveTargetFloor();
-                manage.elevators[assignedElevator].setStatus(temp);
+                manage.elevators[assignedElevator].ariveTargetFloor(); // 假设这是到达目标楼层的方法
             }
             else
             {
@@ -647,8 +642,18 @@ namespace ElevatorSystem
             if (openDoorTcs.ContainsKey(elevatorIndex))
             {
                 openDoorButtons[elevatorIndex].BackColor = Color.Pink;
-                openDoorTcs[elevatorIndex].SetResult(true);
-                messageBox.AppendText($"Passenger has entered the elevator. Please press the close door button for Elevator {elevatorIndex + 1} to start the elevator.{Environment.NewLine}");
+                var tcs = openDoorTcs[elevatorIndex];
+                if (!tcs.Task.IsCompleted) // 检查任务是否已完成
+                {
+                    tcs.SetResult(true);
+                    messageBox.AppendText($"Passenger has entered the elevator. Please press the close door button for Elevator {elevatorIndex + 1} to start the elevator.{Environment.NewLine}");
+                    StartAnimation(openDoorImages, elevatorIndex);
+                }
+                // 考虑在这里移除 tcs 或重置状态
+                openDoorTcs.Remove(elevatorIndex); // 完成任务后从字典中移除torIndex + 1} to start the elevator.{Environment.NewLine}");
+            }
+            else
+            {
                 StartAnimation(openDoorImages, elevatorIndex);
             }
         }
@@ -658,13 +663,21 @@ namespace ElevatorSystem
             if (closeDoorTcs.ContainsKey(elevatorIndex))
             {
                 closeDoorButtons[elevatorIndex].BackColor = Color.Yellow;
-                closeDoorTcs[elevatorIndex].SetResult(true);
-                messageBox.AppendText($"The door for Elevator {elevatorIndex + 1} has closed. The elevator will start moving shortly.{Environment.NewLine}");
+                var tcs = closeDoorTcs[elevatorIndex];
+                if (!tcs.Task.IsCompleted) // 检查任务是否已完成
+                {
+                    tcs.SetResult(true);
+                    messageBox.AppendText($"The door for Elevator {elevatorIndex + 1} has closed. The elevator will start moving shortly.{Environment.NewLine}");
+                    StartAnimation(closeDoorImages, elevatorIndex);
+                }
+                // 考虑在这里移除 tcs 或重置状态
+                closeDoorTcs.Remove(elevatorIndex); // 完成任务后从字典中移除
+            }
+            else
+            {
                 StartAnimation(closeDoorImages, elevatorIndex);
             }
         }
-
-
 
 
         private void Manage_ElevatorMoved(int elevatorIndex,int currentFloor)
@@ -905,11 +918,63 @@ namespace ElevatorSystem
             manage.handleDownRequest(floor);
         }
 
+        private void TriggerAlarmState(int elevatorIndex, bool isActive)
+        {
+            Button alarmButton = FindAlarmButton(elevatorIndex);
+            GroupBox groupBox = elevatorGroups[elevatorIndex];
+
+            if (isActive)
+            {
+                // 启动报警状态
+                manage.elevators[elevatorIndex].setStatus(status.alarm);
+                alarmButton.BackColor = Color.Red;
+
+                // 禁用所有楼层按钮
+                foreach (Control control in groupBox.Controls)
+                {
+                    if (control is Button button && button != alarmButton)
+                    {
+                        button.Enabled = false;
+                    }
+                }
+                messageBox.AppendText($"Alarm activated due to overload. All floor buttons are disabled for Elevator {elevatorIndex + 1}.{Environment.NewLine}");
+            }
+            else
+            {
+                // 取消报警状态
+                manage.elevators[elevatorIndex].setStatus(status.wait);
+                alarmButton.BackColor = Color.White;
+
+                // 启用所有楼层按钮
+                foreach (Control control in groupBox.Controls)
+                {
+                    if (control is Button button && button != alarmButton)
+                    {
+                        button.Enabled = true;
+                    }
+                }
+                messageBox.AppendText($"Alarm deactivated. All floor buttons are enabled for Elevator {elevatorIndex + 1}.{Environment.NewLine}");
+            }
+        }
+
+
         private void AlarmButton_Click(object sender, EventArgs e, int elevatorIndex)
         {
-            // 处理报警按钮点击事件
-            MessageBox.Show($"电梯 {elevatorIndex + 1} 内的警报触发");
+            Button alarmButton = sender as Button;
+            GroupBox groupBox = elevatorGroups[elevatorIndex];
+
+            // 切换电梯状态
+            if (manage.elevators[elevatorIndex].getStatus() != status.alarm)
+            {
+                TriggerAlarmState(elevatorIndex, true);
+            }
+            else if (manage.elevators[elevatorIndex].getStatus() == status.alarm)
+            {
+                TriggerAlarmState(elevatorIndex, false);
+            }
         }
+
+
     }
-    
+
 }
