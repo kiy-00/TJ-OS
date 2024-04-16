@@ -484,7 +484,7 @@ class MainWindow(QMainWindow):
                 self.display_file_folder_info(file_name, modified_time, f_type, size)
 
     def delete(self, filename, item_type, current_node):
-        node = self.category.search(current_node, filename, item_type)
+        node = self.category.search_in_current_directory(current_node, filename, item_type)
         if node is None:
             print(f"未找到指定的{'文件' if item_type == FCB.TXTFILE else '文件夹'}: {filename}")
             return

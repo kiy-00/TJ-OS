@@ -42,6 +42,13 @@ class Category:
                 return result
         return None  # 如果没有找到匹配的节点，则返回None
 
+    def search_in_current_directory(self, p_node, file_name, file_type):
+
+        for child in p_node.children:
+            if child.fcb.file_name == file_name and child.fcb.file_type == file_type:
+                return child  # 返回匹配的子节点
+        return None  # 如果没有找到匹配的节点，则返回None
+
     def create_file(self, parent_node, fcb):
         if self.root is None:
             print("The filesystem has no root node set.")
@@ -55,28 +62,7 @@ class Category:
         parent_node.add_child(new_node)
         print(f"File '{fcb.file_name}' created under parent '{parent_node.fcb.file_name}'.")
 
-    def delete_folder(self, folder_name):
-        # Locate the node that matches the file name and type
-        current_node = self.search(self.root, folder_name, FCB.FOLDER)
-        if current_node is None:
-            print("未找到文件夹")
-            return
-        if current_node.parent is not None:
-            current_node.parent.delete_child(current_node)
-            self.free_category(current_node)
-        else:
-            print("当前不能删除该文件夹")
 
-    def delete_file(self, file_name):
-        current_node = self.search(self.root, file_name, FCB.TXTFILE)
-        if current_node is None:
-            print("未找到文本文件")
-            return
-        if current_node.parent is not None:
-            current_node.parent.delete_child(current_node)
-
-        else:
-            print("当前不能删除该文本文件")
 
     def check_same_name(self, p_node, name, file_type):
         if p_node is None:
