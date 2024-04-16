@@ -74,20 +74,25 @@ class VirtualDisk:
 
         return content
 
-    def delete_file_content(self,start,size):
+    def delete_file_content(self, start, size):
+        if start == self.EMPTY or start >= self.block_num:
+            return  # If start position is invalid or file is empty, return immediately
 
         blocks = self.get_block_size(size)
 
         count = 0
         i = start
         while i < self.block_num and count < blocks:
+            next_index = self.bit_map[i]  # Get next index before clearing
             self.memory[i] = ""
-            self.remain += 1
-            next = self.bit_map[i]
             self.bit_map[i] = self.EMPTY
-            i = next
-            count += 1
+            self.remain += 1
 
+            if next_index == self.END:
+                break  # If this was the last block, exit the loop
+
+            i = next_index
+            count += 1
 
     def file_update(self,old_start,old_size,new_fcb,new_content):
         self.delete_file_content(old_start,old_size)

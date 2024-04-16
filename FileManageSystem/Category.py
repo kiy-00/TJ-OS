@@ -31,27 +31,29 @@ class Category:
         p_node.children = []
         if p_node.parent:
             p_node.parent.delete_child(p_node)
-        del p_node
 
     def search(self, p_node, file_name, file_type):
-        if p_node is None:
-            return None
-        if p_node.fcb.file_name == file_name and p_node.fcb.file_type == file_type:
-            return p_node
+        # 只在子节点中进行搜索，跳过当前节点的直接比较
         for child in p_node.children:
-            result = self.search(child, file_name, file_type)
-            if result is not None:
+            if child.fcb.file_name == file_name and child.fcb.file_type == file_type:
+                return child  # 返回匹配的子节点
+            result = self.search(child, file_name, file_type)  # 递归搜索子节点
+            if result:
                 return result
-        return None
+        return None  # 如果没有找到匹配的节点，则返回None
 
-    def create_file(self, parent_file_name, fcb):
+    def create_file(self, parent_node, fcb):
         if self.root is None:
+            print("The filesystem has no root node set.")
             return
-        parent_node = self.search(self.root, parent_file_name, FCB.FOLDER)
+
         if parent_node is None:
+            print("Parent node is not specified.")
             return
+
         new_node = self.Node(fcb=fcb)
         parent_node.add_child(new_node)
+        print(f"File '{fcb.file_name}' created under parent '{parent_node.fcb.file_name}'.")
 
     def delete_folder(self, folder_name):
         # Locate the node that matches the file name and type
@@ -72,7 +74,7 @@ class Category:
             return
         if current_node.parent is not None:
             current_node.parent.delete_child(current_node)
-            current_node = None
+
         else:
             print("当前不能删除该文本文件")
 
