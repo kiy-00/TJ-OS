@@ -1,13 +1,11 @@
 import os
 import sys
 from PyQt5.QtCore import Qt
-from PyQt5.QtWidgets import QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLabel, \
-    QLineEdit, QTreeWidget, QTreeWidgetItem, QTextEdit, QTableWidget, QTableWidgetItem,QHeaderView,QDialog,QComboBox,\
-    QMessageBox,QMenu,QAction
+from PyQt5.QtWidgets import QMainWindow, QWidget, QHBoxLayout, QPushButton, QLabel, \
+    QLineEdit, QTreeWidget, QTreeWidgetItem, QTableWidget, QTableWidgetItem,QHeaderView,QDialog,QComboBox,\
+    QMenu,QAction
 from PyQt5.QtGui import QIcon,QPixmap
 from PyQt5 import QtGui
-from PyQt5.QtCore import pyqtSignal
-from datetime import datetime
 
 from Category import Category
 from VirtualDisk import VirtualDisk
