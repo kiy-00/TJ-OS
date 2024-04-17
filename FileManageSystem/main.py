@@ -126,8 +126,6 @@ class NoteForm(QDialog):
         else:
             event.accept()  # No changes were made, allow closing
 
-    from PyQt5.QtWidgets import QMessageBox
-    from datetime import datetime
 
     def save_content(self):
         content = self.textEdit.toPlainText()
@@ -492,20 +490,21 @@ class MainWindow(QMainWindow):
         if item_type == FCB.TXTFILE:
             # 删除文件内容
             self.disk.delete_file_content(node.fcb.start, node.fcb.size)
-            # 从目录结构中删除文件节点
-            if node.parent:
-                node.parent.delete_child(node)
         else:
             # 递归删除所有子节点
-            while node.children:  # 使用 while 循环确保所有子节点都被处理
-                child = node.children[0]  # 总是取第一个子节点
-                self.delete(child.fcb.file_name, child.fcb.file_type, node)  # 递归删除
+            while node.children:
+                child = node.children[0]
+                self.delete(child.fcb.file_name, child.fcb.file_type, node)
 
-            # 删除当前节点
-            if node.parent:
-                node.parent.delete_child(node)
+        # 更新父节点的修改时间
+        current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        self.update_parents_modification_time(node,current_time)
 
-        # 只在最顶层调用更新视图，避免重复更新
+        # 从目录结构中删除节点
+        if node.parent:
+            node.parent.delete_child(node)
+
+        # 重置视图
         if current_node == self.current_node:
             self.file_form_init(self.current_node)
             self.setup_tree()
@@ -522,6 +521,7 @@ class MainWindow(QMainWindow):
 
             self.display_file_folder_info(name,formatted_time,FCB.FOLDER,0)
             self.category.create_file(self.current_node,FCB(name,FCB.FOLDER,formatted_time,0))
+            self.update_parents_modification_time(self.current_node,formatted_time)
         self.setup_tree()
 
 
@@ -538,8 +538,15 @@ class MainWindow(QMainWindow):
             # Assuming FCB initialization accepts a datetime object directly
             self.display_file_folder_info(name,formatted_time,FCB.TXTFILE,0)
             self.category.create_file(self.current_node, FCB(name, FCB.TXTFILE, formatted_time, 0))
+            self.update_parents_modification_time(self.current_node,formatted_time)
             print(f"File {name} created successfully.")
         self.setup_tree()
+
+    def update_parents_modification_time(self, node, time):
+        parent_node = node
+        while parent_node:
+            parent_node.fcb.last_modify = time
+            parent_node = parent_node.parent
 
     def go_up(self):
         # 检查当前节点是否有父节点
@@ -583,13 +590,14 @@ class MainWindow(QMainWindow):
                     self.disk.remain = int(remain_line.split(":")[1].strip())
 
                 for i in range(self.disk.block_num):
-                    line = reader.readline().strip()
-                    if not line:  # 保护代码，避免读取空行
-                        continue
-                    # Decode the line
-                    line = line.replace("(((", "(")  # Decode left parentheses
-                    line = line.replace(")))", ")")  # Decode right parentheses
-                    line = line.replace("|||", "\r\n")  # Decode newlines
+                    line = reader.readline()
+                    #if line == '\n':  # 检查是否是空行，只有换行符的行
+                        #continue
+
+                    # Decode the line, handling all types of newlines
+                    line = line.rstrip("\n")  # Remove only the newline at the end
+                    line = line.replace("|||", "\r\n").replace("|r|", "\r").replace("|n|", "\n")
+
                     self.disk.memory[i] = line
 
     def write_my_disk(self):
@@ -598,14 +606,20 @@ class MainWindow(QMainWindow):
             os.remove(path)
 
         with open(path, 'w', encoding='utf-8') as writer:
-            # 首先写入磁盘的剩余容量
+            # 写入磁盘的剩余容量
             writer.write(f"Remaining Blocks: {self.disk.remain}\n")
+
             for data in self.disk.memory:
-                # Encode the line
-                encoded_data = data.replace("(", "(((")  # Encode left parentheses
-                encoded_data = encoded_data.replace(")", ")))")  # Encode right parentheses
-                encoded_data = encoded_data.replace("\r\n", "|||")  # Encode newlines
-                writer.write(encoded_data + '\n')
+                # 输出即将被编码的原始数据
+                print("Original data:", repr(data))
+
+                # Encode the line, handling all types of newlines
+                encoded_data = data.replace("\r\n", "|||").replace("\r", "|r|").replace("\n", "|n|")
+
+                # 打印编码后的数据以确认转换正确
+                print("Encoded data:", repr(encoded_data))
+
+                writer.write(encoded_data + '\n')  # 写入转换后的数据加上行分隔符
 
     def read_category(self):
         with open("CategoryInfo.txt", 'r') as file:

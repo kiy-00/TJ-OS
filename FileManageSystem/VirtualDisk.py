@@ -16,43 +16,53 @@ class VirtualDisk:
         return size // self.block_size + (1 if size % self.block_size != 0 else 0)
 
     def give_space(self, fcb, content):
-        blocks = self.get_block_size(fcb.size)
+        blocks = []
+        index = 0
+        while index < len(content):
+            # 特别处理换行符，保证'\r\n'不被拆分
+            if content[index:index + 2] == '\r\n' and self.block_size == 2 and index + 2 <= len(content):
+                blocks.append(content[index:index + 2])
+                index += 2
+            elif index + self.block_size <= len(content):
+                blocks.append(content[index:index + self.block_size])
+                index += self.block_size
+            else:
+                # 添加最后一个可能的小于block_size的块
+                blocks.append(content[index:])
+                break
 
-        if blocks <= self.remain:
+        if not blocks:  # 如果blocks为空（content为空或其他情况）
+            return True  # 无内容可存储，可以直接返回False或进行其他逻辑处理
+
+        if len(blocks) <= self.remain:
             # 找到文件开始存放的位置
-            start = 0
+            start = -1
             for i in range(self.block_num):
                 if self.bit_map[i] == self.EMPTY:
                     self.remain -= 1
                     start = i
                     fcb.start = i
-                    self.memory[i] = content[:self.block_size]
+                    self.memory[i] = blocks[0]
                     break
+
+            if start == -1:  # 如果没有找到空间
+                return False
 
             # 从该位置往后开始存放内容
             j = 1
             i = start + 1
-            while j < blocks and i < self.block_num:
+            while j < len(blocks) and i < self.block_num:
                 if self.bit_map[i] == self.EMPTY:
                     self.remain -= 1
-
                     self.bit_map[start] = i  # 以链接的方式存储每位数据
                     start = i
-
-                    if blocks != 1:
-                        if j != blocks - 1:
-                            self.memory[i] = content[j * self.block_size:(j + 1) * self.block_size]
-                        else:
-                            self.bit_map[i] = self.END  # 文件尾
-                            if fcb.size % self.block_size != 0:
-                                self.memory[i] = content[j * self.block_size:]
-                            else:
-                                self.memory[i] = content[j * self.block_size:(j + 1) * self.block_size]
-                    else:
-                        self.memory[i] = content
-
-                    j += 1  # 找到一个位置
+                    self.memory[i] = blocks[j]
+                    j += 1  # 处理下一个块
                 i += 1
+
+            if j == len(blocks):
+                self.bit_map[start] = self.END  # 标记文件尾
+
             return True
         else:
             return False
